@@ -1,6 +1,4 @@
-
 # import packages
-
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -25,22 +23,26 @@ daily_historical_returns = data.pct_change()
 
 #Calculate Returns
 #according to Bloomberg’s estimate
-betas = np.array([1.4,1.3,1,1.7])
+#according to yahoo Finance
+betas = []
+for stock in stocks:
+    
+    beta = pd.read_html(f'https://ca.finance.yahoo.com/quote/{stock}?p={stock}')[1].iloc[1,1]
+    betas.append(float(beta))
 
 #risk free interest rate is 1.8% & expected return on the index is 7.8%
 risk_free_rate = 1.8 /100
 index = 7.8 /100
 
 #calculate the expected return on each stock according to the CAPM pricing model formula
-returns = risk_free_rate + betas * ( index - risk_free_rate)
+returns = risk_free_rate + np.array(betas) * ( index - risk_free_rate)
 
-#Takes in weights, returns array or return,standard deviation, sharpe ratio 
-
+#Creating some random portfolios
 num_portfolios = 3000
 
 all_weights = np.zeros((num_portfolios,len(stocks)))
 ret_arr = np.zeros(num_portfolios)
-vol_arr = np.zeros(num_portfolios)
+std_arr = np.zeros(num_portfolios)
 sharpe_arr = np.zeros(num_portfolios)
 
 
@@ -58,10 +60,10 @@ for n in range(num_portfolios):
     ret_arr[n] = np.sum(returns * weights)
 
     # Expected Standard deviation
-    vol_arr[n] = np.sqrt(np.dot(weights.T, np.dot(daily_historical_returns.cov() * 252, weights)))
+    std_arr[n] = np.sqrt(np.dot(weights.T, np.dot(daily_historical_returns.cov() * 252, weights)))
 
     # Sharpe Ratio
-    sharpe_arr[n] = ret_arr[n]/vol_arr[n]
+    sharpe_arr[n] = ret_arr[n]/std_arr[n]
 
 # plt.figure(figsize=(12,8))
 # plt.scatter(vol_arr,ret_arr,c=sharpe_arr,cmap='plasma_r' , edgecolors='black')
@@ -106,13 +108,56 @@ for possible_return in frontier_returns:
     frontier_std.append(result['fun'])
 
 plt.figure(figsize=(12,8))
-plt.scatter(vol_arr,ret_arr,c=sharpe_arr,cmap='plasma_r' )
+plt.scatter(std_arr,ret_arr,c=sharpe_arr,cmap='plasma_r' )
 plt.colorbar(label='Sharpe Ratio')
 plt.xlabel('Standard Deviation')
 plt.ylabel('Return')
 
 # Add frontier line
-plt.plot(frontier_std,frontier_returns,'g--',linewidth=3)
+plt.plot(frontier_std,frontier_returns,'b--',linewidth=3)
+plt.show()
+
+
+#Portfolio with risk free asset
+stocks.append('Risk_Free')
+
+data['Risk_Free'] = risk_free_rate/252
+
+daily_historical_returns = data.pct_change()
+
+returns = np.append(returns , risk_free_rate)
+
+# Initial Guess (equal porportion)
+init_guess = [1/len(stocks)] *len(stocks)
+
+# weights boundaries
+bounds = tuple((0,1) for asset in range(len(stocks)))
+
+# Create a linspace number of points to calculate x
+frontier_returns = np.linspace(min(ret_arr),max(ret_arr),10) 
+
+frontier_std_with_RF = []
+
+for possible_return in frontier_returns:
+    
+    # function for finding minimum risk (standard deviation) of any given return
+    constraints = ({'type':'eq','fun': lambda w: np.sum(w) - 1},
+            {'type':'eq','fun': lambda w: get_ret_std_sr(w)[0] - possible_return})
+    
+    result = minimize(minimize_risk,init_guess,method='SLSQP',bounds=bounds,constraints=constraints)
+    
+    frontier_std_with_RF.append(result['fun'])
+
+plt.figure(figsize=(12,8))
+plt.scatter(std_arr,ret_arr,c=sharpe_arr,cmap='plasma_r'  , alpha = 0.6)
+plt.colorbar(label='Sharpe Ratio')
+plt.xlabel('Standard Deviation')
+plt.ylabel('Return')
+
+# Add frontier line
+plt.plot(frontier_std,frontier_returns,'b-',linewidth=2)
+
+plt.plot(frontier_std_with_RF,frontier_returns,'g--',linewidth=4)
 plt.show()
 
 
