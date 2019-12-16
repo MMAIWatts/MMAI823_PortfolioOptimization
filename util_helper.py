@@ -22,10 +22,13 @@ def get_stocks_yahoo(stocks, start, end, feature):
     return data
 
 #import data
-def import_data_and_betas(update_sources = False):
+def import_data_and_betas(stocks, start, end, update_sources = False):
     """Import historical stock data and betas from Yahoo finance or local file
 
     Arguments:
+        stocks  -- list of ticker symbols
+        start   -- start date of data to be retrieved
+        end     -- end date of data to be retrieved
         update_sources -- if True Retrieve a finance stock data and betas from Yahoo finance 
 
     Returns:
